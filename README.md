@@ -40,11 +40,12 @@ npm run build
 
 ### 方式二：全局配置（推荐）
 
-在 `~/Library/Application Support/Claude/claude_desktop_config.json` 中添加：
+在 `~/.claude.json` 中添加：
 
 ```json
 {
   "mcpServers": {
+    // 其他mcp xxx 
     "harmonyos-ui": {
       "command": "node",
       "args": ["/absolute/path/to/harmonyos-rn-ui-inspector-mcp/server/dist/index.js"],
