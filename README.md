@@ -14,53 +14,28 @@
 ## 安装
 
 ```bash
-npm install
-npm run build
+npm install -g harmonyos-rn-ui-mcp-server
 ```
 
 ## 配置
 
-### 方式一：项目级配置
-
-在项目根目录创建 `.mcp.json`：
+在 `~/.claude.json` 中添加：
 
 ```json
 {
   "mcpServers": {
     "harmonyos-ui": {
-      "command": "node",
-      "args": ["/absolute/path/to/harmonyos-rn-ui-inspector-mcp/server/dist/index.js"],
+      "command": "npx",
+      "args": ["harmonyos-rn-ui-mcp-server"],
       "env": {
-        "HDC_PATH": "/absolute/path/to/hdc"
+        "HDC_PATH": "${HDC_PATH}"
       }
     }
   }
 }
 ```
 
-### 方式二：全局配置（推荐）
-
-在 `~/Library/Application Support/Claude/claude_desktop_config.json` 中添加：
-
-```json
-{
-  "mcpServers": {
-    "harmonyos-ui": {
-      "command": "node",
-      "args": ["/absolute/path/to/harmonyos-rn-ui-inspector-mcp/server/dist/index.js"],
-      "env": {
-        "HDC_PATH": "/absolute/path/to/hdc"
-      }
-    }
-  }
-}
-```
-
-### ⚠️ 重要提示
-
-1. **必须使用绝对路径**，相对路径不工作
-2. **必须包含 `mcpServers` 顶层键**，否则配置无法解析
-3. **配置修改后必须完全重启 Claude Code** 才能生效
+配置修改后重启 Claude Code 即可。
 
 ## 开发
 
