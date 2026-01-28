@@ -38,7 +38,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'get_ui_tree',
-      description: '获取鸿蒙系统 UI 组件树，包含所有应用的 UI 节点层级结构',
+      description: '获取鸿蒙系统 UI 组件树。支持多种模式：summary(摘要)、compact(紧凑)、full(完整)、search(搜索)',
       inputSchema: {
         type: 'object',
         properties: {
@@ -48,8 +48,29 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           format: {
             type: 'string',
-            enum: ['json', 'text'],
-            description: '可选：输出格式，json 或 text（默认 json）',
+            enum: ['summary', 'compact', 'full', 'text', 'search'],
+            description: '可选：输出格式\n- summary: 摘要信息（推荐，数据量小）\n- compact: 紧凑 JSON（只包含关键信息）\n- full: 完整 JSON（数据量大）\n- text: 原始文本\n- search: 搜索模式（需配合搜索参数）',
+          },
+          maxDepth: {
+            type: 'number',
+            description: '可选：限制最大深度（仅 compact/full 模式有效，默认 50）',
+          },
+          // 搜索参数
+          frameNodeTag: {
+            type: 'string',
+            description: '可选：按 frameNodeTag 搜索节点（仅 search 模式有效）',
+          },
+          nodeName: {
+            type: 'string',
+            description: '可选：按节点名称搜索（仅 search 模式有效）',
+          },
+          nodeType: {
+            type: 'string',
+            description: '可选：按节点类型搜索，如 CanvasNode、SurfaceNode（仅 search 模式有效）',
+          },
+          maxResults: {
+            type: 'number',
+            description: '可选：最大结果数（仅 search 模式有效，默认 50）',
           },
         },
       },
@@ -104,32 +125,64 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'get_ui_tree': {
         const output = await hdc.getUiTree();
-        const format = (args?.format as string) || 'json';
+        const format = (args?.format as string) || 'summary';
+        const pid = args?.pid as number | undefined;
+        const maxDepth = (args?.maxDepth as number) || 50;
 
+        // 摘要模式（推荐，数据量小）
+        if (format === 'summary') {
+          const summary = RenderServiceParser.getSummary(output);
+          return {
+            content: [{ type: 'text', text: summary }],
+          };
+        }
+
+        // 紧凑模式（只包含关键信息）
+        if (format === 'compact') {
+          const json = RenderServiceParser.toCompactJSON(output, pid, maxDepth);
+          return {
+            content: [{ type: 'text', text: json }],
+          };
+        }
+
+        // 搜索模式
+        if (format === 'search') {
+          const frameNodeTag = args?.frameNodeTag as string | undefined;
+          const nodeName = args?.nodeName as string | undefined;
+          const nodeType = args?.nodeType as string | undefined;
+          const maxResults = (args?.maxResults as number) || 50;
+
+          if (!frameNodeTag && !nodeName && !nodeType) {
+            return {
+              content: [{ type: 'text', text: '搜索模式需要指定至少一个搜索参数：frameNodeTag、nodeName 或 nodeType' }],
+              isError: true,
+            };
+          }
+
+          const results = RenderServiceParser.searchNodes(output, {
+            pid,
+            frameNodeTag,
+            nodeName,
+            nodeType,
+            maxResults,
+          });
+          return {
+            content: [{ type: 'text', text: results }],
+          };
+        }
+
+        // 原始文本模式
         if (format === 'text') {
-          // 返回原始文本
           return {
             content: [{ type: 'text', text: output }],
           };
         }
 
-        // JSON 格式
-        const pid = args?.pid as number | undefined;
-        if (pid) {
-          const tree = RenderServiceParser.getTreeByPid(output, pid);
-          if (!tree) {
-            return {
-              content: [{ type: 'text', text: `未找到进程 ${pid} 的 UI 树` }],
-            };
-          }
-          return {
-            content: [{ type: 'text', text: JSON.stringify(tree, null, 2) }],
-          };
-        }
-
+        // 完整 JSON 模式（数据量大，默认使用摘要模式）
         const trees = RenderServiceParser.toJSON(output);
+        const result = pid ? { [pid]: trees[pid as any] || {} } : trees;
         return {
-          content: [{ type: 'text', text: JSON.stringify(trees, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
       }
 
