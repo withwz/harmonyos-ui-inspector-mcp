@@ -8,9 +8,12 @@ import {
 import { HDC } from './utils/hdc.js';
 import { WindowManagerParser } from './parsers/windowManager.js';
 import { RenderServiceParser } from './parsers/renderService.js';
+import { UIController } from './automation/controller.js';
 
 // 创建 HDC 实例
 const hdc = new HDC();
+// 创建 UIController 实例
+const uiController = new UIController(hdc);
 
 // 创建 MCP 服务器
 const server = new Server(
@@ -94,6 +97,150 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             description: '本地保存路径（默认 /tmp/screenshot.jpeg）',
           },
         },
+      },
+    },
+    {
+      name: 'tap',
+      description: '点击屏幕指定位置',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          x: {
+            type: 'number',
+            description: 'X 坐标',
+          },
+          y: {
+            type: 'number',
+            description: 'Y 坐标',
+          },
+        },
+        required: ['x', 'y'],
+      },
+    },
+    {
+      name: 'swipe',
+      description: '滑动操作',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          x1: {
+            type: 'number',
+            description: '起始 X 坐标',
+          },
+          y1: {
+            type: 'number',
+            description: '起始 Y 坐标',
+          },
+          x2: {
+            type: 'number',
+            description: '结束 X 坐标',
+          },
+          y2: {
+            type: 'number',
+            description: '结束 Y 坐标',
+          },
+          duration: {
+            type: 'number',
+            description: '滑动持续时间（毫秒），默认 300ms',
+          },
+        },
+        required: ['x1', 'y1', 'x2', 'y2'],
+      },
+    },
+    {
+      name: 'press_key',
+      description: '按键操作',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          code: {
+            type: 'string',
+            description: '按键名称（如: Back/Home/Power）',
+          },
+        },
+        required: ['code'],
+      },
+    },
+    {
+      name: 'smart_tap',
+      description: '根据文字自动点击目标元素',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          text: {
+            type: 'string',
+            description: '目标文字',
+          },
+          pid: {
+            type: 'number',
+            description: '可选：指定进程 ID，用于限定搜索范围',
+          },
+        },
+        required: ['text'],
+      },
+    },
+    {
+      name: 'start_app',
+      description: '启动鸿蒙应用',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          bundleName: {
+            type: 'string',
+            description: '应用包名（如：com.example.app）',
+          },
+          abilityName: {
+            type: 'string',
+            description: '可选：Ability 名称（如：MainAbility），如果不指定则使用包名.MainAbility',
+          },
+        },
+        required: ['bundleName'],
+      },
+    },
+    {
+      name: 'stop_app',
+      description: '停止鸿蒙应用',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          bundleName: {
+            type: 'string',
+            description: '应用包名（如：com.example.app）',
+          },
+        },
+        required: ['bundleName'],
+      },
+    },
+    {
+      name: 'restart_app',
+      description: '重启鸿蒙应用',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          bundleName: {
+            type: 'string',
+            description: '应用包名（如：com.example.app）',
+          },
+          abilityName: {
+            type: 'string',
+            description: '可选：Ability 名称（如：MainAbility），如果不指定则使用包名.MainAbility',
+          },
+        },
+        required: ['bundleName'],
+      },
+    },
+    {
+      name: 'get_app_status',
+      description: '获取鸿蒙应用状态信息',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          bundleName: {
+            type: 'string',
+            description: '应用包名（如：com.example.app）',
+          },
+        },
+        required: ['bundleName'],
       },
     },
   ],
@@ -207,6 +354,208 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case 'tap': {
+        const x = args?.x as number;
+        const y = args?.y as number;
+
+        if (x === undefined || y === undefined) {
+          return {
+            content: [{ type: 'text', text: '错误：缺少必需参数 x 或 y' }],
+            isError: true,
+          };
+        }
+
+        const output = await hdc.tap(x, y);
+
+        return {
+          content: [{ type: 'text', text: `成功点击坐标 (${x}, ${y})\n${output}` }],
+        };
+      }
+
+      case 'swipe': {
+        const x1 = args?.x1 as number;
+        const y1 = args?.y1 as number;
+        const x2 = args?.x2 as number;
+        const y2 = args?.y2 as number;
+        const duration = (args?.duration as number) || 300;
+
+        if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) {
+          return {
+            content: [{ type: 'text', text: '错误：缺少必需参数 x1, y1, x2 或 y2' }],
+            isError: true,
+          };
+        }
+
+        const output = await hdc.swipe(x1, y1, x2, y2, duration);
+
+        return {
+          content: [{ type: 'text', text: `成功从 (${x1}, ${y1}) 滑动到 (${x2}, ${y2})，持续 ${duration}ms\n${output}` }],
+        };
+      }
+
+      case 'press_key': {
+        const code = args?.code as string;
+
+        if (code === undefined) {
+          return {
+            content: [{ type: 'text', text: '错误：缺少必需参数 code' }],
+            isError: true,
+          };
+        }
+
+        const output = await hdc.pressKey(code);
+
+        return {
+          content: [{ type: 'text', text: `成功按键: ${code}\n${output}` }],
+        };
+      }
+
+      case 'smart_tap': {
+        const text = args?.text as string;
+        const pid = args?.pid as number | undefined;
+
+        if (text === undefined) {
+          return {
+            content: [{ type: 'text', text: '错误：缺少必需参数 text' }],
+            isError: true,
+          };
+        }
+
+        const result = await uiController.smartTap(text, pid);
+
+        if (result.success) {
+          let responseText = result.message;
+          if (result.coordinates) {
+            responseText += `\n坐标: (${result.coordinates.x}, ${result.coordinates.y})`;
+          }
+          if (result.element) {
+            responseText += `\n元素类型: ${result.element.type}${result.element.name ? ` (${result.element.name})` : ''}`;
+          }
+          return {
+            content: [{ type: 'text', text: responseText }],
+          };
+        } else {
+          return {
+            content: [{ type: 'text', text: result.message }],
+            isError: true,
+          };
+        }
+      }
+
+      case 'start_app': {
+        const bundleName = args?.bundleName as string;
+        const abilityName = args?.abilityName as string | undefined;
+
+        if (bundleName === undefined) {
+          return {
+            content: [{ type: 'text', text: '错误：缺少必需参数 bundleName' }],
+            isError: true,
+          };
+        }
+
+        const result = await hdc.startApp(bundleName, abilityName);
+
+        if (result.success) {
+          return {
+            content: [{ type: 'text', text: result.message }],
+          };
+        } else {
+          return {
+            content: [{ type: 'text', text: result.message }],
+            isError: true,
+          };
+        }
+      }
+
+      case 'stop_app': {
+        const bundleName = args?.bundleName as string;
+
+        if (bundleName === undefined) {
+          return {
+            content: [{ type: 'text', text: '错误：缺少必需参数 bundleName' }],
+            isError: true,
+          };
+        }
+
+        const result = await hdc.stopApp(bundleName);
+
+        if (result.success) {
+          return {
+            content: [{ type: 'text', text: result.message }],
+          };
+        } else {
+          return {
+            content: [{ type: 'text', text: result.message }],
+            isError: true,
+          };
+        }
+      }
+
+      case 'restart_app': {
+        const bundleName = args?.bundleName as string;
+        const abilityName = args?.abilityName as string | undefined;
+
+        if (bundleName === undefined) {
+          return {
+            content: [{ type: 'text', text: '错误：缺少必需参数 bundleName' }],
+            isError: true,
+          };
+        }
+
+        const result = await hdc.restartApp(bundleName, abilityName);
+
+        if (result.success) {
+          return {
+            content: [{ type: 'text', text: result.message }],
+          };
+        } else {
+          return {
+            content: [{ type: 'text', text: result.message }],
+            isError: true,
+          };
+        }
+      }
+
+      case 'get_app_status': {
+        const bundleName = args?.bundleName as string;
+
+        if (bundleName === undefined) {
+          return {
+            content: [{ type: 'text', text: '错误：缺少必需参数 bundleName' }],
+            isError: true,
+          };
+        }
+
+        const result = await hdc.getAppStatus(bundleName);
+
+        if (result.success) {
+          let responseText = `## 应用状态: ${bundleName}\n\n`;
+          responseText += `运行状态: ${result.isRunning ? '运行中' : '未运行'}\n\n`;
+
+          if (result.abilities.length > 0) {
+            responseText += `### Abilities (${result.abilities.length})\n\n`;
+            responseText += '| Ability 名称 | 状态 |\n';
+            responseText += '|-------------|------|\n';
+            for (const ability of result.abilities) {
+              responseText += `| ${ability.name} | ${ability.state} |\n`;
+            }
+          } else {
+            responseText += `未找到该应用的 Ability 实例\n`;
+          }
+
+          responseText += `\n${result.message}`;
+
+          return {
+            content: [{ type: 'text', text: responseText }],
+          };
+        } else {
+          return {
+            content: [{ type: 'text', text: result.message }],
+            isError: true,
+          };
+        }
+      }
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -224,6 +573,23 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('HarmonyOS RN UI MCP Server running');
+
+  // 添加优雅关闭处理
+  const shutdown = async (signal: string) => {
+    console.error(`\n收到 ${signal} 信号，正在关闭服务器...`);
+    try {
+      // 这里可以添加清理逻辑，例如关闭连接等
+      console.error('服务器已优雅关闭');
+      process.exit(0);
+    } catch (error) {
+      console.error('关闭服务器时出错:', error);
+      process.exit(1);
+    }
+  };
+
+  // 监听进程信号
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 main().catch((error) => {
