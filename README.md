@@ -11,6 +11,8 @@
 | `list_abilities` | 列出所有应用 | AbilityManagerService |
 | `screenshot` | 获取设备截图 | snapshot_display |
 
+[更多功能查看](./docs/QUICK_REFERENCE.md)
+
 ## 安装
 
 ```bash
