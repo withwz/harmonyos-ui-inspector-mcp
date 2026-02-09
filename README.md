@@ -24,6 +24,7 @@ npm install -g harmonyos-rn-ui-mcp-server
 在 `~/.claude.json` 中添加：
 
 ```json
+// 不要放在项目中，要放在根配置中
 {
   "mcpServers": {
     "harmonyos-ui": {
@@ -54,6 +55,26 @@ npm run build
 # 启动服务器
 npm start
 ```
+
+开发模式配置
+```json
+// 不要放在项目中，要放在根配置中
+  "mcpServers": {
+    "harmonyos-ui": {
+      "command": "node",
+      "args": [
+        "/xxxxxx/harmonyos-ui-inspector-mcp/dist/index.js"
+      ],
+      "env": {
+        "HDC_PATH": "${HDC_PATH}"
+      }
+    }
+  },
+```
+
+
+
+
 
 ## 使用
 
