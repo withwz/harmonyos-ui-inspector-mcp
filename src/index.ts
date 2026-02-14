@@ -285,10 +285,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'get_ui_tree': {
-        const output = await hdc.getUiTree();
+        let output = await hdc.getUiTree();
         const format = (args?.format as string) || 'summary';
-        const pid = args?.pid as number | undefined;
+        let pid = args?.pid as number | undefined;
         const maxDepth = (args?.maxDepth as number) || 50;
+
+        // 如果没有指定 pid，自动获取最上层窗口的 pid
+        if (!pid) {
+          const windowOutput = await hdc.listWindows();
+          const windows = WindowManagerParser.parse(windowOutput);
+          const topWindow = windows.sort((a, b) => b.zOrder - a.zOrder)[0];
+          if (topWindow) {
+            pid = topWindow.pid;
+            console.error(`[自动检测] 使用最上层窗口: ${topWindow.name} (PID: ${topWindow.pid})`);
+          }
+        }
 
         // 摘要模式（推荐，数据量小）
         if (format === 'summary') {
