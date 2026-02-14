@@ -30,23 +30,26 @@ export class UIController {
     message: string;
     element?: UINode;
     coordinates?: { x: number; y: number };
+    candidates?: Array<{ element: UINode; score: number }>;
   }> {
     try {
       // 获取 UI 树
       const uiTreeOutput = await this.hdc.getUiTree();
 
       // 查找包含目标文字的节点
-      const elements = this.findElementsByText(uiTreeOutput, text, pid);
+      const matches = this.findElementsByTextWithScore(uiTreeOutput, text, pid);
 
-      if (elements.length === 0) {
+      if (matches.length === 0) {
         return {
           success: false,
           message: `未找到包含文字 "${text}" 的元素`,
+          candidates: [],
         };
       }
 
-      // 选择第一个匹配的元素
-      const targetElement = elements[0];
+      // 选择第一个匹配的元素（得分最高）
+      const targetMatch = matches[0];
+      const targetElement = targetMatch.node;
 
       // 提取元素坐标
       const coordinates = this.extractCenterCoordinates(targetElement);
@@ -56,6 +59,7 @@ export class UIController {
           success: false,
           message: `无法提取元素坐标`,
           element: targetElement,
+          candidates: matches.map(m => ({ element: m.node, score: m.score })),
         };
       }
 
@@ -64,9 +68,10 @@ export class UIController {
 
       return {
         success: true,
-        message: `成功点击包含文字 "${text}" 的元素`,
+        message: `成功点击包含文字 "${text}" 的元素 (匹配度: ${targetMatch.score}%)`,
         element: targetElement,
         coordinates,
+        candidates: matches.map(m => ({ element: m.node, score: m.score })),
       };
     } catch (error) {
       return {
@@ -182,6 +187,34 @@ export class UIController {
     // 按匹配度排序，返回最佳匹配
     allMatches.sort((a, b) => b.score - a.score);
     return allMatches.map(m => m.node);
+  }
+
+  /**
+   * 在 UI 树中查找包含指定文字的元素（带评分）
+   * @param uiTreeOutput UI 树输出
+   * @param text 目标文字
+   * @param pid 可选的进程 ID
+   * @returns 匹配的元素列表（包含分数）
+   */
+  private findElementsByTextWithScore(
+    uiTreeOutput: string,
+    text: string,
+    pid?: number
+  ): Array<{ node: UINode; score: number }> {
+    const trees = RenderServiceParser.parse(uiTreeOutput);
+    const allMatches: Array<{ node: UINode; score: number }> = [];
+
+    for (const [currentPid, root] of trees) {
+      if (pid && currentPid !== pid) continue;
+
+      // 使用 ElementLocator 进行更智能的搜索
+      const matches = ElementLocator.findByText(root, text, false);
+      allMatches.push(...matches.map(m => ({ node: m.node, score: m.score })));
+    }
+
+    // 按匹配度排序，返回最佳匹配
+    allMatches.sort((a, b) => b.score - a.score);
+    return allMatches;
   }
 
   /**

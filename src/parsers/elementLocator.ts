@@ -568,26 +568,92 @@ export class ElementLocator {
 
   /**
    * 计算匹配度分数
+   * 使用更智能的评分算法，包括编辑距离
    */
   private static calculateScore(node: UINode, text: string): number {
-    let score = 50; // 基础分
+    let score = 0;
 
-    if (node.name) {
-      // 精确匹配得高分
-      if (node.name.toLowerCase() === text.toLowerCase()) {
-        score = 100;
-      }
-      // 以目标文本开头
-      else if (node.name.toLowerCase().startsWith(text.toLowerCase())) {
-        score = 80;
-      }
-      // 包含目标文本
-      else if (node.name.toLowerCase().includes(text.toLowerCase())) {
-        score = 60;
-      }
+    if (!node.name) {
+      return score;
+    }
+
+    const nodeName = node.name.toLowerCase();
+    const searchText = text.toLowerCase();
+
+    // 1. 精确匹配 - 100分
+    if (nodeName === searchText) {
+      return 100;
+    }
+
+    // 2. 完全包含 - 85分
+    if (nodeName.includes(searchText) || searchText.includes(nodeName)) {
+      return 85;
+    }
+
+    // 3. 前缀匹配 - 75分
+    if (nodeName.startsWith(searchText)) {
+      return 75;
+    }
+
+    // 4. 后缀匹配 - 70分
+    if (nodeName.endsWith(searchText)) {
+      return 70;
+    }
+
+    // 5. 使用编辑距离进行模糊匹配
+    const distance = this.levenshteinDistance(nodeName, searchText);
+    const maxLength = Math.max(nodeName.length, searchText.length);
+    const similarity = 1 - distance / maxLength;
+
+    // 如果相似度大于 60%，给予相应分数
+    if (similarity >= 0.6) {
+      score = Math.round(similarity * 60);
     }
 
     return score;
+  }
+
+  /**
+   * 计算两个字符串之间的编辑距离（Levenshtein 距离）
+   * 用于模糊匹配算法
+   */
+  private static levenshteinDistance(str1: string, str2: string): number {
+    const m = str1.length;
+    const n = str2.length;
+
+    // 创建二维数组
+    const dp: number[][] = [];
+    for (let i = 0; i <= m; i++) {
+      dp[i] = [];
+      for (let j = 0; j <= n; j++) {
+        dp[i][j] = 0;
+      }
+    }
+
+    // 初始化第一行和第一列
+    for (let i = 0; i <= m; i++) {
+      dp[i][0] = i;
+    }
+    for (let j = 0; j <= n; j++) {
+      dp[0][j] = j;
+    }
+
+    // 动态规划计算
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (str1[i - 1] === str2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1];
+        } else {
+          dp[i][j] = Math.min(
+            dp[i - 1][j] + 1,      // 删除
+            dp[i][j - 1] + 1,      // 插入
+            dp[i - 1][j - 1] + 1   // 替换
+          );
+        }
+      }
+    }
+
+    return dp[m][n];
   }
 }
 

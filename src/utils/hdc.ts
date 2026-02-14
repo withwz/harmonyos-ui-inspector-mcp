@@ -316,6 +316,18 @@ export class HDC {
   }
 
   /**
+   * 输入文字
+   * @param text 要输入的文字
+   */
+  async inputText(text: string): Promise<string> {
+    if (!text || typeof text !== 'string') {
+      throw new Error('text 必须是非空字符串');
+    }
+    Logger.debug(`输入文字: ${text}`);
+    return await this.shell(`uitest uiInput text ${text}`);
+  }
+
+  /**
    * 启动应用
    * @param bundleName 应用包名
    * @param abilityName Ability名称（可选）

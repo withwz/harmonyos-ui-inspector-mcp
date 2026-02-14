@@ -162,6 +162,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: 'text',
+      description: '在焦点处输入文字',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          text: {
+            type: 'string',
+            description: '要输入的文字',
+          },
+        },
+        required: ['text'],
+      },
+    },
+    {
       name: 'smart_tap',
       description: '根据文字自动点击目标元素',
       inputSchema: {
@@ -410,6 +424,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case 'text': {
+        const text = args?.text as string;
+
+        if (text === undefined) {
+          return {
+            content: [{ type: 'text', text: '错误：缺少必需参数 text' }],
+            isError: true,
+          };
+        }
+
+        const output = await hdc.inputText(text);
+
+        return {
+          content: [{ type: 'text', text: `成功输入文字: "${text}"\n${output}` }],
+        };
+      }
+
       case 'smart_tap': {
         const text = args?.text as string;
         const pid = args?.pid as number | undefined;
@@ -431,12 +462,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (result.element) {
             responseText += `\n元素类型: ${result.element.type}${result.element.name ? ` (${result.element.name})` : ''}`;
           }
+          // 如果有候选列表，显示前几个相似结果
+          if (result.candidates && result.candidates.length > 1) {
+            responseText += `\n\n其他相似结果 (共 ${result.candidates.length - 1} 个):`;
+            for (let i = 1; i < Math.min(4, result.candidates.length); i++) {
+              const cand = result.candidates[i];
+              responseText += `\n  ${i}. ${cand.element.type}${cand.element.name ? `(${cand.element.name})` : ''} - 匹配度: ${cand.score}%`;
+            }
+          }
           return {
             content: [{ type: 'text', text: responseText }],
           };
         } else {
+          let responseText = result.message;
+          // 显示候选列表帮助调试
+          if (result.candidates && result.candidates.length > 0) {
+            responseText += `\n\n找到的相似元素 (共 ${result.candidates.length} 个):`;
+            for (let i = 0; i < Math.min(5, result.candidates.length); i++) {
+              const cand = result.candidates[i];
+              responseText += `\n  ${i + 1}. ${cand.element.type}${cand.element.name ? `(${cand.element.name})` : ''} - 匹配度: ${cand.score}%`;
+            }
+          } else {
+            responseText += `\n提示: 请确认文字是否正确，或尝试使用更模糊的搜索词`;
+          }
           return {
-            content: [{ type: 'text', text: result.message }],
+            content: [{ type: 'text', text: responseText }],
             isError: true,
           };
         }
