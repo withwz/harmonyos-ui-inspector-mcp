@@ -317,6 +317,8 @@ export class HDC {
 
   /**
    * 输入文字
+   * ⚠️ 注意：此功能在当前 HarmonyOS 版本上不可用
+   * uitest uiInput text 命令虽然存在但实际不工作
    * @param text 要输入的文字
    */
   async inputText(text: string): Promise<string> {
@@ -324,7 +326,9 @@ export class HDC {
       throw new Error('text 必须是非空字符串');
     }
     Logger.debug(`输入文字: ${text}`);
-    return await this.shell(`uitest uiInput text ${text}`);
+    const result = await this.shell(`uitest uiInput text ${text}`);
+    Logger.warn('⚠️ text 输入功能在当前设备上不可用，命令执行但没有实际效果');
+    return result;
   }
 
   /**

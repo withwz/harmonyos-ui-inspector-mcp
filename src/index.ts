@@ -163,7 +163,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'text',
-      description: '在焦点处输入文字',
+      description: '⚠️ 在焦点处输入文字（注意：当前 HarmonyOS 版本上不可用）',
       inputSchema: {
         type: 'object',
         properties: {
